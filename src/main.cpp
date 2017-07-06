@@ -7,6 +7,16 @@
 
 #define RST_PIN 2
 #define SS_PIN  15
+#define SPEAKER D2
+
+const auto NOTE_C4 = 262u;
+const auto NOTE_D4 = 294u;
+const auto NOTE_E4 = 330u;
+const auto NOTE_F4 = 349u;
+const auto NOTE_G4 = 392u;
+const auto NOTE_A4 = 440u;
+const auto NOTE_B4 = 494u;
+const auto NOTE_C5 = 523u;
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
@@ -54,6 +64,30 @@ void getUid(char * uid) {
   Serial.println(uid);
 }
 
+void ackSound() {
+  tone(SPEAKER, NOTE_C4);
+	delay(100);
+  noTone(SPEAKER);
+}
+
+void successSound() {
+  tone(SPEAKER, NOTE_C4);
+  delay(100);
+  tone(SPEAKER, NOTE_F4);
+  delay(100);
+  tone(SPEAKER, NOTE_C5);
+  delay(100);
+  noTone(SPEAKER);
+}
+
+void failSound() {
+  tone(SPEAKER, NOTE_C4);
+  delay(200);
+  tone(SPEAKER, NOTE_C4);
+	delay(200);
+  noTone(SPEAKER);
+}
+
 void loop() {
 	// Look for new cards
 	if (!mfrc522.PICC_IsNewCardPresent()) {
@@ -65,6 +99,8 @@ void loop() {
 		return;
 	}
 
+	ackSound();
+
 	char file_name[12] = "/";
 	getUid(file_name + 1);
 
@@ -72,12 +108,14 @@ void loop() {
 
 	if (!SPIFFS.exists(file_name)) {
 		Serial.println(F("No file found"));
+		failSound();
 		return;
 	}
 
 	File f = SPIFFS.open(file_name, "r");
 	if (!f) {
 		Serial.println(F("Unable to read file"));
+		failSound();
 		return;
 	}
 
@@ -87,9 +125,12 @@ void loop() {
 
 	f.close();
 
+	successSound();
+
 	WiFiClient client;
 	if (!client.connect(server_host, server_port)) {
 		Serial.println("squeezebox server connection failed");
+		failSound();
 		return;
 	}
 
@@ -108,6 +149,7 @@ void loop() {
 		if (millis() - timeout > 5000) {
 			Serial.println(F(">>> Client Timeout !"));
 			client.stop();
+			failSound();
 			return;
 		}
 	}
